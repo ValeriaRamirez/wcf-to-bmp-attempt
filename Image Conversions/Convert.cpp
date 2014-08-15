@@ -32,15 +32,22 @@ int main()
 	unsigned char Green = 0;
 	unsigned char Blue = 0;
 
+	/*	This reads in the data in Palette.csv and saves the 
+		values in a 2D array so that the pixel values can be
+		set for converting the .wcf image into a .bmp image.
+		This part works correctly .
+		*/
 	std::ifstream  Rgb("C:\\Users\\vramirez\\Documents\\Palette.csv");
 	std::string Line;
 	Row = 0;
-	//	Takes from RGB and stores into Line
+	//	Takes from Rgb and stores into Line
 	while (std::getline(Rgb, Line))
 	{
+		//	Started counter at -1 so that after Counter++,
+		//	Red = 0, Green = 1, and Blue = 2
 		Counter = -1;
 		std::stringstream  lineStream(Line);
-		std::string        cell;		//	RGB
+		std::string        cell;
 		//	Takes from lineStream and stores in cell until ',' is found
 		while (std::getline(lineStream, cell, ','))
 		{
@@ -69,6 +76,12 @@ int main()
 	}
 	Rgb.close(); 
 
+	/*	This opens the .wcf image and reads the dataray headers
+		then sets up the bitmap header files.
+		I was unable to figure out why the .bmp image does not 
+		turn out 100% correct. Seems to me like the RGB values 
+		get switch around on parts of the image. 
+	*/
 	//	Open .wcf image
 	FILE* F_WCF = fopen("C:\\Program Files (x86)\\DataRay\\Test_Perfect_Gaussian_2mm.wcf", "r+b");
 	if (!F_WCF)
@@ -93,10 +106,6 @@ int main()
 		fseek(F_WCF, 0, SEEK_END);
 		i_WCF_Size = ftell(F_WCF);
 		fseek(F_WCF, 0, SEEK_SET);
-
-		//		void* Data = malloc(1048576 * 2);
-		//
-
 
 		//	Read and write the header files
 		if (!OutPut.is_open())
@@ -132,7 +141,14 @@ int main()
 			InfoBMP.biClrUsed = 0;
 			InfoBMP.biClrImportant = 0;
 
-			//OutPut.write((char*)&InfoBMP, sizeof(InfoBMP));
+			OutPut.write((char*)&InfoBMP, sizeof(InfoBMP));
+
+
+			/*	This was the first way that I went about writing
+				the pixels into the .bmp image but then I tried a 
+				second way. I kept this just in case I ended up
+				needing it.
+			*/
 			//char Fill = 0;
 			//OutPut.write((char*)&Fill, 4);
 			////		fread(&Data, 1, 1, F_WCF);
@@ -154,6 +170,12 @@ int main()
 			//		Pixel[1] = Green;// = 255;
 			//		Pixel[2] = Blue;// = 0;
 			//		OutPut.write((char*)&Pixel, 3);					//	About 2,000 too big
+
+
+			/*	The following are just other ways that I tried to 
+				write into the OutPut file. Thought it would be a good 
+				idea not to delete them just in case.
+			*/
 			//		OutPut.write((char*)&Palette, 3);				//	Right Size, but all black	
 			//		OutPut.write((char*)&Palette[NewData][Blue], 1);
 			//		OutPut.write((char*)&Palette[NewData][Green], 1);	//	About 2,000 too big
@@ -167,15 +189,16 @@ int main()
 			//	}
 			//}
 
-			OutPut.write((char*)&InfoBMP, sizeof(InfoBMP));
-			
+
+			/*	Second way that I tried to write the pixels into 
+				the .bmp image. Still does not work, the RGB values 
+				get switch around at some points for unknown reasons.
+			*/
 			//	Write junk for 4 bytes 
 			char Fill = 00000000; 
 			OutPut.write((char*)&Fill, 4);  
 
 			unsigned short *Data = new unsigned short[BMPImageSize];
-
-	//		fread(Data, 10, 1, F_WCF); 
 			fread(Data, (BMPImageSize), 1, F_WCF);
 			unsigned char Pixel[3];
  			for (WORD Y = 0; Y < (InfoBMP.biHeight); Y++)
@@ -198,10 +221,12 @@ int main()
 					Pixel[1] = Green;
 					Pixel[2] = Blue;
 
-					OutPut.write((char*)&Pixel, 3);					//	About 2,000 too big
+					OutPut.write((char*)&Pixel, 3);	
 				}
 			}
 			OutPut.close();
+
+			//	Check if end of file 
 			if (EOF)
 			{
 				cout << "End of file reached!" << endl; 
@@ -214,55 +239,6 @@ int main()
 		fclose(NewBMPImage);
 	}
 	fclose(F_WCF); 
-
-	//		free(Data);
-	//
-
-	/*
-	 //	Total size of both headers put together
-	 i_Headers = (sizeof(WC_IMAGE_DATA_HEADER_2) + sizeof(WC_IMAGE_DATA));
-	 //	Size of entire file without headers
-	 i_RestOfFile = (i_WCF_Size - i_Headers);
-	 //	One byte for every pixel value
-	 i_WidthBytes = (DataWCF.Width * 3);
-
-	 //	Buffer that will hold the rest of the file
-	 BYTE *WCFBuffer = new BYTE[(i_RestOfFile * 2)];
-	 //	Read the rest of the file all at once
-	 fread(WCFBuffer, (i_RestOfFile + 1), 1, F_WCF);
-
-	 //	Write the rest of the file into the new BMP file
-	 if (!OutPut.is_open())
-	 {
-	 cout << "Failed to open the new BMP file in order to write rest of file!" << endl;
-	 }
-	 else if (OutPut.is_open())
-	 {
-	 //	Array of the three values that make up each pixel (each value is one byte)
-	 unsigned char c_Pixel[3];
-	 //	Height component
-	 for (int H = 1; H < (DataWCF.Height + 1); H++)
-	 {
-	 //	Width component
-	 for (int W = 0; W < (i_WidthBytes + 1); W++)
-	 {
-	 //	Writing in groups of three instead of one by one
-	 if (((W + 1) % 3) == 0)
-	 {
-	 unsigned char Blue = (WCFBuffer[H*i_WidthBytes + (W)]);
-	 unsigned char Green = (WCFBuffer[H*i_WidthBytes + (W - 1)]);
-	 unsigned char Red = (WCFBuffer[H*i_WidthBytes + (W - 2)]);
-
-	 c_Pixel[0] = Red;
-	 c_Pixel[1] = Green;
-	 c_Pixel[2] = Blue;
-	 OutPut.write((char*)&c_Pixel, 3);
-	 }
-	 }
-	 }
-	 }
-	 OutPut.close();
-	 }*/
 
 	system("pause");
 	return(0);
